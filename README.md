@@ -14,6 +14,10 @@ greenlight.AvailabilityChanged += (_, e) => ShowConnectionState(e.Availability);
 await greenlight.StartAsync();
 ```
 
+**[SPEC.md](https://github.com/meddlingidiot/MeddlingIdiot.Greenlight.Sdk/blob/main/SPEC.md) is the full contract** — a complete client top to bottom, the four
+states, the two things that catch people, and the wire protocol for languages that are not
+.NET. One page, written to be read whole.
+
 ## Greenlight not running is a normal state, not an error
 
 Nothing in this package throws because Greenlight is absent. An app that starts before
