@@ -1,0 +1,187 @@
+# ============================================================================
+# GitHub Actions Workflow for Fallout Build
+# ============================================================================
+#
+# Build Architecture:
+#   - Build Logic: All build logic is in Fallout (build/Build.cs)
+#   - CI/CD Orchestration: This workflow handles pipeline triggers and artifact publishing
+#   - Base Class: All DefaultBuilds inherit from GitHubActionsBuild
+#
+# Fallout Targets (defined in build/Build.cs and DefaultBuilds):
+#   - ReleasePackage: Compile → Test → Package → Push to NuGet feed
+#   - PublishNuGet: Compile → Test → Package → Publish to nuget.org
+#   - TagRelease: Tag and push git release (auto-triggered on main branch)
+#
+# ============================================================================
+
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+      - 'bugfix/**'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'LICENSE'
+
+# ============================================================================
+# Build Job
+# ============================================================================
+jobs:
+  build:
+    name: 'Build, Test, and Package'
+    runs-on: windows-latest
+
+    permissions:
+      contents: write      # TagRelease pushes the v{version} tag
+      id-token: write      # Trusted Publishing: lets the job request an OIDC token
+      pull-requests: read
+
+    steps:
+      # ----------------------------------------------------------------
+      # Setup: Checkout code with full history for GitVersion
+      # ----------------------------------------------------------------
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history required for GitVersion
+          token: ${{ secrets.GITHUB_TOKEN }}  # Allows 'git push' for TagRelease target
+
+      # ----------------------------------------------------------------
+      # Setup: Install .NET SDK
+      # ----------------------------------------------------------------
+      # The version comes from global.json so the runner installs exactly the SDK the
+      # repository is pinned to - a literal here would drift from the pin.
+      - name: Install the .NET SDK pinned in global.json
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # ----------------------------------------------------------------
+      # Setup: Trusted Publishing — a short-lived nuget.org key, not a stored one
+      #
+      # GitHub signs an OIDC token describing this repository and workflow; nuget.org
+      # checks it against the trusted publishing policy and hands back an API key that
+      # lives for one hour. Nothing long-lived is stored in this repository's secrets.
+      #
+      # Kept immediately before the build for that reason: the key is issued now and the
+      # push happens at the end of it, so the whole compile-test-package run has to fit
+      # inside the hour.
+      #
+      # main only. A branch build publishes nothing (see NuGetPublishDecision), and asking
+      # for a publishing credential it will not use would be its own small mistake.
+      # ----------------------------------------------------------------
+      - name: NuGet login (OIDC to short-lived key)
+        id: nuget-login
+        if: github.ref == 'refs/heads/main'
+        uses: NuGet/login@v1
+        with:
+          # The nuget.org profile name, not an email address. Not a secret - it is on the
+          # page of every package published under it.
+          user: themeddlingidiot
+
+      # ----------------------------------------------------------------
+      # Build: Run Fallout Build (uses default target from Build.cs)
+      # Default target is PublishNuGet, which performs:
+      #   1. ShowVersion → Clean → Restore → Compile
+      #   2. ScanSecrets → UnitTests → IntegrationTests → CoverageReport
+      #   3. UpdateChangelog → Package → PublishNuGet (push to nuget.org)
+      #   4. TagRelease (if main branch)
+      #
+      # A prerelease version, or any branch but main, publishes nothing — the rules live in
+      # NuGetPublishDecision and they are tested.
+      # ----------------------------------------------------------------
+      - name: Execute Fallout Build
+        run: |
+          dotnet tool restore
+          dotnet run --project .\build\_build.csproj -- --artifacts-directory-param "${{ github.workspace }}\artifacts"
+        shell: pwsh
+        env:
+          # The short-lived key from the login step above, read by IHasNuGetOrg. Empty on a
+          # branch build, which is fine: PushPackagesToNuGet decides whether to publish
+          # before it ever reads a credential.
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+          # The built-in token, needed only so TagRelease can git push the v{version} tag.
+          # Was GH_PACKAGES_TOKEN, which existed for a GitHub Packages push that is now gone.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ----------------------------------------------------------------
+      # Publish: NuGet Packages
+      # ----------------------------------------------------------------
+      - name: Upload NuGet Packages
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nuget-packages
+          path: ${{ github.workspace }}/artifacts/packages
+          if-no-files-found: ignore
+
+      # ----------------------------------------------------------------
+      # Publish: Code Coverage Results
+      # ----------------------------------------------------------------
+      - name: Extract Coverage Percentage
+        if: always()
+        id: coverage
+        shell: pwsh
+        run: |
+          $summaryFile = "${{ github.workspace }}/artifacts/coverage-report/Summary.json"
+          if (Test-Path $summaryFile) {
+            $json = Get-Content $summaryFile | ConvertFrom-Json
+            $coverage = [math]::Round($json.summary.linecoverage, 2)
+            echo "percentage=$coverage" >> $env:GITHUB_OUTPUT
+            echo "Coverage: $coverage%"
+          } else {
+            echo "percentage=0" >> $env:GITHUB_OUTPUT
+            echo "Coverage file not found"
+          }
+      
+      #      - name: Create Coverage Badge
+      #        if: always() && github.ref == 'refs/heads/main'
+      #        uses: schneegans/dynamic-badges-action@v1.7.0
+      #        with:
+      #          auth: ${{ secrets.GIST_SECRET }}
+      #          gistID: YOUR_GIST_ID_HERE
+      #          filename: coverage-badge.json
+      #          label: coverage
+      #          message: ${{ steps.coverage.outputs.percentage }}%
+      #          color: ${{ steps.coverage.outputs.percentage >= 80 && 'brightgreen' || steps.coverage.outputs.percentage >= 60 && 'yellow' || 'red' }}
+      
+      #     - name: Upload Coverage Report to Codecov
+      #       uses: codecov/codecov-action@v4
+      #       if: always()
+      #       continue-on-error: true
+      #       with:
+      #         files: ${{ github.workspace }}/artifacts/coverage-report/Cobertura.xml
+      #         fail_ci_if_error: false
+      #         token: ${{ secrets.CODECOV_TOKEN }}
+
+      # ----------------------------------------------------------------
+      # Publish: Coverage Report Artifact
+      # ----------------------------------------------------------------
+      - name: Upload Coverage Report Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: ${{ github.workspace }}/artifacts/coverage-report
+          if-no-files-found: ignore
+
+      # ----------------------------------------------------------------
+      # Publish: Test Results
+      # ----------------------------------------------------------------
+      - name: Publish Test Results
+        uses: dorny/test-reporter@v1
+        if: always()
+        continue-on-error: true
+        with:
+          name: 'Unit + Integration Tests'
+          path: ${{ github.workspace }}/artifacts/test-results/**/*.trx
+          reporter: dotnet-trx
+          fail-on-error: false

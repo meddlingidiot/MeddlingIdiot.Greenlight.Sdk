@@ -1,0 +1,47 @@
+# GitVersion.yml
+mode: ContinuousDelivery
+assembly-versioning-scheme: MajorMinorPatch
+tag-pre-release-weight: 60000
+# This repository has no tags yet, so GitVersion needs a baseline. 1.1.0 puts the first
+# public release ahead of the 1.0.16 that already went to the private GitHub Packages feed -
+# a version going backwards on the way to a more public feed is the kind of thing nobody
+# notices until a restore picks the wrong one. Remove this once v1.1.0 is tagged.
+next-version: 1.1.0
+tag-prefix: '[vV]?'
+branches:
+  main:
+    mode: ContinuousDeployment
+    increment: Patch
+    # Removed label for stable releases (no pre-release suffix)
+    regex: ^master$|^main$
+    is-main-branch: true
+    track-merge-target: false
+  feature:
+    mode: ContinuousDelivery
+    label: beta
+    increment: Patch
+    regex: ^feature(s)?[/-]
+    source-branches: ['main']
+    is-main-branch: false
+    pre-release-weight: 30000
+  bugfix:
+    mode: ContinuousDelivery
+    label: beta
+    increment: Patch
+    regex: ^bugfix(es)?[/-]
+    source-branches: ['main']
+    is-main-branch: false
+    pre-release-weight: 30000
+  pull-request:
+    mode: ContinuousDeployment
+    label: ''
+    increment: Inherit
+    regex: ^(pull|pull\-requests|pr)[/-]
+    source-branches: ['main', 'feature', 'bugfix']
+    is-main-branch: false
+    track-merge-target: false
+    label-number-pattern: '[/-](?<number>\d+)'
+    pre-release-weight: 30000
+
+ignore:
+  sha: []

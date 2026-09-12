@@ -1,0 +1,80 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Greenlight local-API SDK. Two halves in one assembly:
+
+      Protocol/  the wire contract — shared with the Greenlight host, which takes a
+                 ProjectReference on this project and uses ONLY this namespace, so the
+                 host and the published package can never disagree about the format.
+      Client/    GreenlightClient — what a consumer app actually uses.
+
+    Deliberately dependency-free and multi-targeted so any modern .NET desktop app can
+    reference it. JSON goes through a source-generated context, so the package stays
+    trim- and AOT-safe. .NET Framework is not supported.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Greenlight.Sdk</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsTrimmable>true</IsTrimmable>
+    <!-- CS1573: documenting SOME record parameters is on purpose. A <param> for every
+         obvious one (Title, Project, Branch) is noise that buries the two or three that
+         actually need explaining. -->
+    <NoWarn>$(NoWarn);CS1573</NoWarn>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <!-- Packaging is wired up in phase 5; the metadata lives here from the start so the
+       package identity never changes underneath anyone. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>MeddlingIdiot.Greenlight.Sdk</PackageId>
+
+    <!--
+      Set explicitly because this repository has no GitVersion and no build project: without
+      it the package would pack as 1.0.0, which is *behind* the 1.0.16 already sitting on the
+      private GitHub Packages feed. A version going backwards on the way to a more public
+      feed is the kind of thing nobody notices until a restore picks the wrong one.
+    -->
+    <VersionPrefix>1.1.0</VersionPrefix>
+    <Description>Read live build and pull-request status from a Greenlight instance running on the same machine. Sits in a disabled state, and reconnects on its own, when Greenlight is not running.</Description>
+    <Authors>MeddlingIdiot</Authors>
+    <Company>MeddlingIdiot</Company>
+    <Product>Greenlight</Product>
+    <Copyright>Copyright © MeddlingIdiot</Copyright>
+    <PackageTags>greenlight;build-status;azure-devops;github;ci;tray;named-pipes</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/meddlingidiot/MeddlingIdiot.Greenlight.Sdk</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/meddlingidiot/MeddlingIdiot.Greenlight.Sdk</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+
+    <!-- SourceLink, which the .NET SDK now brings in on its own — no PackageReference
+         needed. A stepped-into stack frame landing on the real line of the real commit is
+         worth the handful of properties. -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+
+    <!-- MIT, and the source is public. The SDK is the doorknob rather than the house: the
+         wire contract and a named-pipe client, no providers, no credentials, no licensing.
+         Greenlight itself stays closed; this has to be open for anyone to build against it. -->
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The repository's own README, packed as the package README. One file: a NuGet page
+         and a GitHub landing page that disagree are worse than either alone. -->
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Greenlight.Sdk.UnitTests" />
+  </ItemGroup>
+
+</Project>

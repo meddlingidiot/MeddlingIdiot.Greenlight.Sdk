@@ -427,3 +427,14 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+# Fallout Build
+.fallout/build.schema.json
+.fallout/temp/
+.tmp/
+artifacts/
+
+# JetBrains Rider
+.idea/
+
+# Rider DotSettings
+*.DotSettings
