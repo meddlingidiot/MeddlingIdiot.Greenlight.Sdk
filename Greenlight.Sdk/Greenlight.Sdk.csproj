@@ -39,7 +39,7 @@
       private GitHub Packages feed. A version going backwards on the way to a more public
       feed is the kind of thing nobody notices until a restore picks the wrong one.
     -->
-    <VersionPrefix>1.1.0</VersionPrefix>
+    <VersionPrefix>1.2.0</VersionPrefix>
     <Description>Read live build and pull-request status from a Greenlight instance running on the same machine. Sits in a disabled state, and reconnects on its own, when Greenlight is not running.</Description>
     <Authors>MeddlingIdiot</Authors>
     <Company>MeddlingIdiot</Company>

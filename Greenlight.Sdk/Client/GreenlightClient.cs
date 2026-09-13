@@ -189,6 +189,14 @@ public sealed class GreenlightClient : IGreenlightStatus, IAsyncDisposable
     public Task<CommandResult> ShowDashboardAsync(CancellationToken cancellationToken = default) =>
         SendAsync(CommandName.ShowDashboard, null, cancellationToken);
 
+    /// <inheritdoc />
+    public Task<CommandResult> HoldIndicatorsAsync(GreenlightStatus? status, bool? building = null, CancellationToken cancellationToken = default) =>
+        SendAsync(CommandName.HoldIndicators, new CommandArgs(Status: status, Building: building), cancellationToken);
+
+    /// <inheritdoc />
+    public Task<CommandResult> ReleaseIndicatorsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync(CommandName.HoldIndicators, null, cancellationToken);
+
     private async Task<CommandResult> SendAsync(string name, CommandArgs? args, CancellationToken cancellationToken)
     {
         var connection = _connection;

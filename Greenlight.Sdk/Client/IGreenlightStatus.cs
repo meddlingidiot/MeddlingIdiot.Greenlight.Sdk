@@ -58,4 +58,29 @@ public interface IGreenlightStatus
 
     /// <summary>Bring Greenlight's own dashboard window to the foreground.</summary>
     Task<CommandResult> ShowDashboardAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Hold every indicator Greenlight drives — its tray icon, desktop stoplight, hardware
+    /// lamps and every attached app, this one included — at a colour and/or a pretend build,
+    /// exactly as the buttons on Greenlight's developer page do. For showing a client off, or
+    /// checking it responds, without waiting for a real build to break.
+    /// </summary>
+    /// <param name="status">
+    /// The colour to hold at, or null to leave the colour following the real state.
+    /// <see cref="GreenlightStatus.Unknown"/> is the grey "off".
+    /// </param>
+    /// <param name="building">
+    /// True to pretend a build is running (the indicators blink), false to pretend none is,
+    /// or null to leave that following the real state.
+    /// </param>
+    /// <remarks>
+    /// The snapshot that follows says the colour is a drill in its <c>Reason</c>, naming this
+    /// app. The host drops the hold by itself when this client detaches, so a crash cannot
+    /// leave the user's light lying to them; call <see cref="ReleaseIndicatorsAsync"/> to
+    /// drop it sooner.
+    /// </remarks>
+    Task<CommandResult> HoldIndicatorsAsync(GreenlightStatus? status, bool? building = null, CancellationToken cancellationToken = default);
+
+    /// <summary>Hand the indicators back to the real build state after <see cref="HoldIndicatorsAsync"/>.</summary>
+    Task<CommandResult> ReleaseIndicatorsAsync(CancellationToken cancellationToken = default);
 }

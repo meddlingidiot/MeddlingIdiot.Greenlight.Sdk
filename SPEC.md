@@ -174,7 +174,20 @@ await greenlight.RefreshNowAsync();                      // poll every remote no
 await greenlight.AcknowledgeBuildsAsync([12345, 12346]); // dismiss specific runs
 await greenlight.AcknowledgePipelineAsync("Web", "CI");  // dismiss a whole pipeline
 await greenlight.ShowDashboardAsync();                   // surface Greenlight's own window
+await greenlight.HoldIndicatorsAsync(GreenlightStatus.Red, building: true); // a drill
+await greenlight.ReleaseIndicatorsAsync();               // back to the real build state
 ```
+
+`HoldIndicatorsAsync` is the developer page's buttons, over the pipe: every indicator
+Greenlight drives — tray, desktop stoplight, hardware lamps, every attached app including
+yours — holds at the colour and/or blinks as though a build were running, until released.
+That is how you photograph your client red without breaking a build. Three things to know:
+
+- The snapshot you get back says so — `Reason` reads *"Held at Red by your-app."* — so
+  nothing downstream can mistake the drill for the real thing.
+- **The host drops the hold when your connection ends.** Crash mid-drill and the user's light
+  goes back to telling the truth.
+- `GreenlightStatus.Unknown` is the grey "off"; `status: null` holds only the blink.
 
 Commands return a `CommandResult` rather than throwing:
 
@@ -329,6 +342,8 @@ are ISO-8601. Null-valued fields are omitted.
 | client → | `{"t":"command","id":"c1","name":"refresh_now"}` |
 | client → | `{"t":"command","id":"c2","name":"acknowledge_builds","args":{"buildIds":[12345]}}` |
 | client → | `{"t":"command","id":"c3","name":"acknowledge_pipeline","args":{"project":"Web","pipeline":"CI"}}` |
+| client → | `{"t":"command","id":"c4","name":"hold_indicators","args":{"status":"Red","building":true}}` |
+| client → | `{"t":"command","id":"c5","name":"hold_indicators"}` — no `args` releases the hold |
 | → client | `{"t":"ack","id":"c1","ok":true}` |
 | → client | `{"t":"ack","id":"c1","ok":false,"error":"rate_limited","message":"…"}` |
 | → client | `{"t":"bye","reason":"disabled"}` · `{"t":"bye","reason":"shutdown"}` |

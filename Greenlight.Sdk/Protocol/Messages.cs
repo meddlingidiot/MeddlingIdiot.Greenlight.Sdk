@@ -32,6 +32,14 @@ public static class CommandName
     public const string RefreshNow = "refresh_now";
     /// <summary>Bring Greenlight's dashboard window to the foreground.</summary>
     public const string ShowDashboard = "show_dashboard";
+    /// <summary>
+    /// Hold every indicator — tray, desktop stoplight, hardware lamps and every attached app,
+    /// this one included — at a colour and/or a pretend build, the way Greenlight's own
+    /// developer page does. Args: <see cref="CommandArgs.Status"/>, <see cref="CommandArgs.Building"/>;
+    /// both absent means back to the real build state. The host releases the hold by itself
+    /// when the client that placed it detaches.
+    /// </summary>
+    public const string HoldIndicators = "hold_indicators";
 }
 
 /// <summary>Why the host closed a connection, as carried by <see cref="ByeMessage"/>.</summary>
@@ -93,10 +101,21 @@ public sealed record CommandMessage(string Id, string Name, CommandArgs? Args = 
 /// hierarchy here: the set is tiny, it keeps the source-generated serializer free of
 /// type-discriminator handling, and an unknown field costs a reader nothing.
 /// </summary>
+/// <param name="Status">
+/// For <see cref="CommandName.HoldIndicators"/>: the colour to hold at.
+/// <see cref="GreenlightStatus.Unknown"/> is Greenlight's grey — the "off" the developer page
+/// offers. Null leaves the colour following the real build state.
+/// </param>
+/// <param name="Building">
+/// For <see cref="CommandName.HoldIndicators"/>: pretend a build is running (true) or is not
+/// (false), so the indicators blink or stop. Null leaves it following the real build state.
+/// </param>
 public sealed record CommandArgs(
     IReadOnlyList<long>? BuildIds = null,
     string? Project = null,
-    string? Pipeline = null);
+    string? Pipeline = null,
+    GreenlightStatus? Status = null,
+    bool? Building = null);
 
 /// <summary>Server → client. One per command, always, whether it worked or not.</summary>
 /// <param name="Id">The <see cref="CommandMessage.Id"/> being answered.</param>

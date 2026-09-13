@@ -90,6 +90,31 @@ public class LocalApiProtocolTests
     }
 
     [Fact]
+    public void Hold_indicators_carries_a_colour_and_a_pretend_build_on_the_wire()
+    {
+        var line = GreenlightProtocol.Serialize(
+            new CommandMessage("c10", CommandName.HoldIndicators, new CommandArgs(Status: GreenlightStatus.Red, Building: true)));
+
+        // Spelled out because a non-.NET client writes this by hand from the spec.
+        Assert.Contains("\"status\":\"Red\"", line);
+        Assert.Contains("\"building\":true", line);
+
+        var received = GreenlightProtocol.Deserialize<CommandMessage>(line);
+        Assert.Equal(GreenlightStatus.Red, received!.Args!.Status);
+        Assert.True(received.Args.Building);
+    }
+
+    [Fact]
+    public void Hold_indicators_with_no_arguments_is_a_release()
+    {
+        var line = GreenlightProtocol.Serialize(new CommandMessage("c11", CommandName.HoldIndicators));
+        var received = GreenlightProtocol.Deserialize<CommandMessage>(line);
+
+        Assert.Equal(CommandName.HoldIndicators, received!.Name);
+        Assert.True(received.Args is null || (received.Args.Status is null && received.Args.Building is null));
+    }
+
+    [Fact]
     public void Messages_are_a_single_line_each()
     {
         // The framing is newline-delimited, so an indented serializer would silently break
